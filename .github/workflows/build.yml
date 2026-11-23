@@ -1,0 +1,42 @@
+name: Build and push ProFound container
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - Dockerfile
+      - .github/workflows/build.yml
+  workflow_dispatch:   # adds a manual "Run workflow" button in the Actions tab
+
+permissions:
+  contents: read
+  packages: write      # needed to push to ghcr.io
+
+jobs:
+  build:
+    runs-on: ubuntu-latest   # x86_64, which is what your HPC almost certainly uses
+    steps:
+      - uses: actions/checkout@v4
+
+      # GHCR image names must be lowercase
+      - name: Compute image name
+        run: echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/profound" >> "$GITHUB_ENV"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ${{ env.IMAGE }}:latest
+            ${{ env.IMAGE }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
