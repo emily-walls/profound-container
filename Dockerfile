@@ -18,7 +18,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 RUN Rscript -e 'options(Ncpus = 4); install.packages(c("remotes", "Rcpp", "data.table", "FITSio", "imager", "magicaxis", "celestial", "png"))'
 
-RUN Rscript -e 'options(Ncpus = 4); remotes::install_github("asgr/ProFound", dependencies = TRUE, upgrade = "never")'
+# ProFound's GitHub-only dependencies (Highlander, LaplacesDemon, ...) are looked up via the
+# GitHub API, which rate-limits anonymous requests from shared build machines. The workflow
+# passes a token in as a build secret (never stored in the image) so the lookups succeed.
+RUN --mount=type=secret,id=github_pat \
+    if [ -f /run/secrets/github_pat ]; then export GITHUB_PAT="$(cat /run/secrets/github_pat)"; fi; \
+    Rscript -e 'options(Ncpus = 4); remotes::install_github("asgr/ProFound", dependencies = TRUE, upgrade = "never")'
 
 # Fail the build if ProFound didn't install properly
 RUN Rscript -e 'library(ProFound); cat("ProFound", as.character(packageVersion("ProFound")), "OK\n")'
