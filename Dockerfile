@@ -14,9 +14,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         libx11-dev libcairo2-dev libxt-dev \
         libfontconfig1-dev libfreetype6-dev libharfbuzz-dev libfribidi-dev \
         zlib1g-dev libbz2-dev liblzma-dev \
+        libglpk-dev libglpk40 libgmp-dev libgmp10 \
     && rm -rf /var/lib/apt/lists/*
 
-RUN Rscript -e 'options(Ncpus = 4); install.packages(c("remotes", "Rcpp", "data.table", "FITSio", "imager", "magicaxis", "celestial", "png"))'
+RUN Rscript -e 'options(Ncpus = 4, warn = 1); install.packages(c("remotes", "Rcpp", "data.table", "FITSio", "imager", "magicaxis", "celestial", "png"))' \
+ && Rscript -e 'pk <- c("remotes", "Rcpp", "data.table", "FITSio", "imager", "magicaxis", "celestial", "png"); miss <- pk[!sapply(pk, requireNamespace, quietly = TRUE)]; if (length(miss)) stop("These R packages failed to install: ", paste(miss, collapse = ", "))'
 
 # ProFound's GitHub-only dependencies (Highlander, LaplacesDemon, ...) are looked up via the
 # GitHub API, which rate-limits anonymous requests from shared build machines. The workflow
@@ -26,7 +28,7 @@ RUN --mount=type=secret,id=github_pat \
     Rscript -e 'options(Ncpus = 4); remotes::install_github("asgr/ProFound", dependencies = TRUE, upgrade = "never")'
 
 # Fail the build if ProFound didn't install properly
-RUN Rscript -e 'library(ProFound); cat("ProFound", as.character(packageVersion("ProFound")), "OK\n")'
+RUN Rscript -e 'library(ProFound); library(imager); library(FITSio); cat("ProFound", as.character(packageVersion("ProFound")), "+ imager", as.character(packageVersion("imager")), "OK\n")'
 
 WORKDIR /work
 CMD ["R"]
